@@ -74,9 +74,7 @@ drw_create(XCBDisplay *dpy, int screen, XCBWindow root, unsigned int w, unsigned
     drw->drawable = XCBCreatePixmap(dpy, root, w, h, XCBDefaultDepth(dpy, screen));
     drw->gc = XCBCreateGC(dpy, root, 0, NULL);
     
-    XCBSetLineAttributes(dpy, drw->gc, )
-	XSetLineAttributes(dpy, drw->gc, 1, LineSolid, CapButt, JoinMiter);
-
+    XCBSetLineAttributes(dpy, drw->gc, 1, XCB_LINE_STYLE_SOLID, XCB_CAP_STYLE_BUTT, XCB_JOIN_STYLE_MITER);
 	return drw;
 }
 

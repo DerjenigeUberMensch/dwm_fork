@@ -22,7 +22,7 @@ typedef xcb_void_cookie_t XCBCookie;
 typedef xcb_intern_atom_cookie_t XCBAtomCookie;
 typedef xcb_atom_t XCBAtom;
 
-typedef xcb_visualid_t XCBVisualId;
+typedef xcb_visualid_t XCBVisual;
 
 typedef xcb_get_window_attributes_cookie_t XCBWindowAttributesCookie;
 typedef xcb_get_window_attributes_cookie_t XCBAttributesCookie;
@@ -206,10 +206,6 @@ extern unsigned long XCBGetMaximumRequestLength(XCBDisplay *display);
 
 
 
-
-
-
-
 /* 
  * RETURN: XCB_CONN_ERROR, because of socket errors, pipe errors or other stream errors.
  * RETURN: XCB_CONN_CLOSED_EXT_NOTSUPPORTED, when extension not supported.
@@ -293,13 +289,39 @@ XCBGenericEvent *XCBPollForQueuedEvent(xcb_connection_t *c);
 extern XCBCookie XCBMapWindow(XCBDisplay *display, XCBWindow window);
 
 /* windows*/
-extern XCBWindow XCBCreateWindow(XCBDisplay *display, XCBWindow parent, int x, int y, unsigned int width, unsigned int height, int border_width, uint8_t depth, unsigned int _class, XCBVisualId visual, uint32_t valuemask, const uint32_t *value_list);
+extern XCBWindow XCBCreateWindow(XCBDisplay *display, XCBWindow parent, int x, int y, unsigned int width, unsigned int height, int border_width, uint8_t depth, unsigned int _class, XCBVisual visual, uint32_t valuemask, const uint32_t *value_list);
 
 
 /* GC */
 /* RETURN: GC id (identification number) */
 extern XCBGC XCBCreateGC(XCBDisplay *display, XCBDrawable drawable, uint32_t valuemask, const void *valuelist);
-/* RETURN: 1, always cause why not */
+/* 
+ * linewidth: measured in pixels and can be greater than or equal to one, a wide line, or the special value zero, a thin line.
+ * linestyle: XCB_LINE_STYLE_SOLID          The full path of the line is drawn.
+ *
+ *            XCB_LINE_STYLE_DOUBLE_DASH    The full path of the line is drawn, 
+ *                                          but the even dashes are filled differently than the odd dashes (see fill-style), 
+ *                                          with Butt cap-style used where even and odd dashes meet.
+ *
+ *            XCB_LINE_STYLE_ON_OFF_DASH    Only the even dashes are drawn, 
+ *                                          and cap-style applies to all internal ends of the individual dashes (except NotLast is treated as Butt).
+ *
+ * capstyle: XCB_CAP_STYLE_NOT_LAST         The result is equivalent to Butt, except that for a line-width of zero the final endpoint is not drawn.
+ *           XCB_CAP_STYLE_BUTT             The result is square at the endpoint (perpendicular to the slope of the line) with no projection beyond.
+ *           XCB_CAP_STYLE_ROUND            The result is a circular arc with its diameter equal to the line-width, centered
+ *                                          on the endpoint; it is equivalent to Butt for line-width zero.
+ *           XCB_CAP_STYLE_PROJECTING       The result is square at the end, but the path continues beyond the endpoint for
+ *                                          a distance equal to half the line-width; it is equivalent to Butt for line-width zero.
+ *
+ * joinstyle: XCB_JOIN_STYLE_MITER          The outer edges of the two lines extend to meet at an angle. However, if the
+ *                                          angle is less than 11 degrees, a Bevel join-style is used instead.
+ *            XCB_JOIN_STYLE_ROUND          The result is a circular arc with a diameter equal to the line-width, centered
+ *                                          on the joinpoint.
+ *            XCB_JOIN_STYLE_BEVEL          The result is Butt endpoint styles, and then the triangular notch is filled.
+ *
+ *
+ * RETURN: 1, always cause why not 
+ */
 extern int XCBSetLineAttributes(XCBDisplay *display, XCBGC gc, uint32_t linewidth, uint32_t linestyle, uint32_t capstyle, uint32_t joinstyle);
 
 /* Valuemasks

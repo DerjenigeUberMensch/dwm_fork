@@ -1633,6 +1633,7 @@ setup(void)
 	netatom[NetWMWindowType] = XCBInternAtomReply(dpy, cookies[11]);
 	netatom[NetWMWindowTypeDialog] = XCBInternAtomReply(dpy, cookies[12]);
 	netatom[NetClientList] = XCBInternAtomReply(dpy, cookies[13]);
+
 	/* init cursors */
 	cursor[CurNormal] = drw_cur_create(drw, XC_left_ptr);
 	cursor[CurResize] = drw_cur_create(drw, XC_sizing);

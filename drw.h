@@ -1,11 +1,14 @@
 /* See LICENSE file for copyright and license details. */
 
+
+#include "xcb_trl.h"
+
 typedef struct {
 	Cursor cursor;
 } Cur;
 
 typedef struct Fnt {
-	Display *dpy;
+	XCBDisplay *dpy;
 	unsigned int h;
 	XftFont *xfont;
 	FcPattern *pattern;
@@ -17,11 +20,11 @@ typedef XftColor Clr;
 
 typedef struct {
 	unsigned int w, h;
-	Display *dpy;
+	XCBDisplay *dpy;
 	int screen;
-	Window root;
-	Drawable drawable;
-	GC gc;
+	XCBWindow root;
+	XCBDrawable drawable;
+	XCBGC gc;
 	Clr *scheme;
 	Fnt *fonts;
 } Drw;

@@ -39,16 +39,20 @@
 //#include "drw.h"
 #include "util.h"
 
+
 /* macros */
-#define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
-#define CLEANMASK(mask)         (mask & ~(numlockmask|LockMask) & (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask))
+#define BUTTONMASK              (XCB_BUTTON_PRESS|XCB_BUTTON_RELEASE)
+                                        /* numlockmask is a defined variable in dwm NOT a X11 variable */
+#define CLEANMASK(mask)         (mask & ~(numlockmask|XCB_MOD_MASK_LOCK) & \
+                                (XCB_MOD_MASK_SHIFT|XCB_MOD_MASK_CONTROL| \
+                                 XCB_MOD_MASK_1|XCB_MOD_MASK_2|XCB_MOD_MASK_3|XCB_MOD_MASK_4|XCB_MOD_MASK_5))
 #define INTERSECT(x,y,w,h,m)    (MAX(0, MIN((x)+(w),(m)->wx+(m)->ww) - MAX((x),(m)->wx)) \
                                * MAX(0, MIN((y)+(h),(m)->wy+(m)->wh) - MAX((y),(m)->wy)))
 #define ISVISIBLE(C)            ((C->tags & C->mon->tagset[C->mon->seltags]))
 #define LENGTH(X)               (sizeof X / sizeof X[0])
 #define MOUSEMASK               (BUTTONMASK|PointerMotionMask)
-#define WIDTH(X)                ((X)->w + 2 * (X)->bw)
-#define HEIGHT(X)               ((X)->h + 2 * (X)->bw)
+#define WIDTH(X)                ((X)->w + ((X)->bw << 1))
+#define HEIGHT(X)               ((X)->h + ((X)->bw << 1))
 #define TAGMASK                 ((1 << LENGTH(tags)) - 1)
 #define TEXTW(X)                (drw_fontset_getwidth(drw, (X)) + lrpad)
 #define VERSION                 "XXX"
@@ -476,7 +480,7 @@ checkotherwm(void)
 	XCBCookie wm_cookie = xcb_change_window_attributes_checked(conn, root, XCB_CW_EVENT_MASK, values);
 	err = xcb_request_check(conn, wm_cookie);
     if(err)
-    {   debug("error code: %d", err->error_code)
+    {   debug("error code: %d", err->error_code);
         free(err);
         die("FATAL: Another Window manager is already running");
     }
@@ -894,11 +898,17 @@ getatomprop(Client *c, XCBAtom prop)
 int
 getrootptr(int *x, int *y)
 {
-	int di;
-	unsigned int dui;
-	Window dummy;
+    int samescr;
 
-	return XQueryPointer(dpy, root, &dummy, &dummy, x, y, &di, &di, &dui);
+    XCBPointerCookie cookie = XCBQueryPointerCookie(dpy);
+    XCBPointerReply *reply = XCBQueryPointerReply(dpy);
+
+    *x = reply->root_x;
+    *y = reply->root_y;
+    samescr = reply->same_screen;
+    free(reply);
+    /* This is what XQueryPointer returns so we just return that also */
+    return samescr;
 }
 
 long
@@ -999,7 +1009,7 @@ incnmaster(const Arg *arg)
 }
 
 static int
-isuniquegeom(xcb_xinerama_screen_info_t *unique, size_t n, xcb_xinerama_screen_info_t *info)
+isuniquegeom(XCBXineramaScreenInfo *unique, size_t n, XCBXineramaScreenInfo *info)
 {
     while(n--)
     {   if(unique[n].x_org == info->x_org && unique[n].y_org == info->y_org && unique[n].width == info->width && union[n].height == info->height)
@@ -1566,6 +1576,7 @@ setup(void)
 	int i;
     XCBWindowAttributes wa;
 	XCBAtom utf8string;
+    XCBAtomCookie cookies[14];
 	struct sigaction sa;
 
 	/* do not transform children into zombies when they terminate */
@@ -1593,20 +1604,35 @@ setup(void)
 	bh = drw->fonts->h + 2;
 	updategeom();
 	/* init atoms */
-	utf8string = XInternAtom(dpy, "UTF8_STRING", False);
-	wmatom[WMProtocols] = XInternAtom(dpy, "WM_PROTOCOLS", False);
-	wmatom[WMDelete] = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
-	wmatom[WMState] = XInternAtom(dpy, "WM_STATE", False);
-	wmatom[WMTakeFocus] = XInternAtom(dpy, "WM_TAKE_FOCUS", False);
-	netatom[NetActiveWindow] = XInternAtom(dpy, "_NET_ACTIVE_WINDOW", False);
-	netatom[NetSupported] = XInternAtom(dpy, "_NET_SUPPORTED", False);
-	netatom[NetWMName] = XInternAtom(dpy, "_NET_WM_NAME", False);
-	netatom[NetWMState] = XInternAtom(dpy, "_NET_WM_STATE", False);
-	netatom[NetWMCheck] = XInternAtom(dpy, "_NET_SUPPORTING_WM_CHECK", False);
-	netatom[NetWMFullscreen] = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
-	netatom[NetWMWindowType] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
-	netatom[NetWMWindowTypeDialog] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
-	netatom[NetClientList] = XInternAtom(dpy, "_NET_CLIENT_LIST", False);
+    cookies[0] = XCBInternAtomCookie(dpy, "UTF8_STRING", False);
+    cookies[1] = XCBInternAtomCookie(dpy, "WM_PROTOCOLS", False);
+    cookies[2] = XCBInternAtomCookie(dpy, "WM_DELETE_WINDOW", False);
+    cookies[3] = XCBInternAtomCookie(dpy, "WM_STATE", False);
+    cookies[4] = XCBInternAtomCookie(dpy, "WM_TAKE_FOCUS", False);
+    cookies[5] = XCBInternAtomCookie(dpy, "_NET_ACTIVE_WINDOW", False);
+    cookies[6] = XCBInternAtomCookie(dpy, "_NET_SUPPORTED", False);
+    cookies[7] = XCBInternAtomCookie(dpy, "_NET_WM_NAME", False);
+    cookies[8] = XCBInternAtomCookie(dpy, "_NET_WM_STATE", False);
+    cookies[9] = XCBInternAtomCookie(dpy, "_NET_SUPPORTING_WM_CHECK", False);
+    cookies[10] = XCBInternAtomCookie(dpy, "_NET_WM_STATE_FULLSCREEN", False);
+    cookies[11] = XCBInternAtomCookie(dpy, "_NET_WM_WINDOW_TYPE", False);
+    cookies[12] = XCBInternAtomCookie(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
+    cookies[13] = XCBInternAtomCookie(dpy, "_NET_CLIENT_LIST", False);
+
+	utf8string = XCBInternAtomReply(dpy, cookies[0]);
+    wmatom[WMProtocols] = XCBInternAtomReply(dpy, cookies[1]);
+	wmatom[WMDelete] = XCBInternAtomReply(dpy, cookies[2]);
+	wmatom[WMState] = XCBInternAtomReply(dpy, cookies[3]);
+	wmatom[WMTakeFocus] = XCBInternAtomReply(dpy, cookies[4]);
+	netatom[NetActiveWindow] = XCBInternAtomReply(dpy, cookies[5]);
+	netatom[NetSupported] = XCBInternAtomReply(dpy, cookies[6]);
+	netatom[NetWMName] = XCBInternAtomReply(dpy, cookies[7]);
+	netatom[NetWMState] = XCBInternAtomReply(dpy, cookies[8]);
+	netatom[NetWMCheck] = XCBInternAtomReply(dpy, cookies[9]);
+	netatom[NetWMFullscreen] = XCBInternAtomReply(dpy, cookies[10]);
+	netatom[NetWMWindowType] = XCBInternAtomReply(dpy, cookies[11]);
+	netatom[NetWMWindowTypeDialog] = XCBInternAtomReply(dpy, cookies[12]);
+	netatom[NetClientList] = XCBInternAtomReply(dpy, cookies[13]);
 	/* init cursors */
 	cursor[CurNormal] = drw_cur_create(drw, XC_left_ptr);
 	cursor[CurResize] = drw_cur_create(drw, XC_sizing);
@@ -1870,12 +1896,15 @@ updatebarpos(Monitor *m)
 {
 	m->wy = m->my;
 	m->wh = m->mh;
-	if (m->showbar) {
+	if (m->showbar) 
+    {
 		m->wh -= bh;
 		m->by = m->topbar ? m->wy : m->wy + m->wh;
 		m->wy = m->topbar ? m->wy + bh : m->wy;
-	} else
-		m->by = -bh;
+	} 
+    else
+    {   m->by = -bh;
+    }
 }
 
 void
@@ -1899,8 +1928,8 @@ updategeom(void)
 
     int xienabled;
     int xiactive;
-    const xcb_query_extension_reply_t *extrep;
-    xcb_xinerama_is_active_reply_t *xia;
+    const XCBExtensionReply *extrep;
+    XCBXineramaIsActiveReply *xia;
     int xinerama_screen_number;
     int xid;
 
@@ -1922,8 +1951,8 @@ updategeom(void)
         int i, j, n, nn;
         Client *c;
         Monitor *m;
-        xcb_xinerama_query_screens_reply_t *xsq;
-        xcb_xinerama_screen_info_t *info, *unique = NULL;
+        XCBXineramaQueryScreensReply *xsq;
+        XCBXineramaScreenInfo *info, *unique = NULL;
 
         xsq = xcb_xinerama_query_screens_reply(dpy, xcb_xinerama_query_screens_unchecked(dpy), NULL);
 
@@ -2126,7 +2155,7 @@ view(const Arg *arg)
 }
 
 Client *
-wintoclient(Window w)
+wintoclient(XCBWindow w)
 {
 	Client *c;
 	Monitor *m;

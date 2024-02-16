@@ -7,6 +7,7 @@
 
 #include "drw.h"
 #include "util.h"
+#include "xcb_trl.h"
 
 #define UTF_INVALID 0xFFFD
 #define UTF_SIZ     4
@@ -61,7 +62,7 @@ utf8decode(const char *c, long *u, size_t clen)
 }
 
 Drw *
-drw_create(Display *dpy, int screen, Window root, unsigned int w, unsigned int h)
+drw_create(XCBDisplay *dpy, int screen, XCBWindow root, unsigned int w, unsigned int h)
 {
 	Drw *drw = ecalloc(1, sizeof(Drw));
 
@@ -70,8 +71,10 @@ drw_create(Display *dpy, int screen, Window root, unsigned int w, unsigned int h
 	drw->root = root;
 	drw->w = w;
 	drw->h = h;
-	drw->drawable = XCreatePixmap(dpy, root, w, h, DefaultDepth(dpy, screen));
-	drw->gc = XCreateGC(dpy, root, 0, NULL);
+    drw->drawable = XCBCreatePixmap(dpy, root, w, h, XCBDefaultDepth(dpy, screen));
+    drw->gc = XCBCreateGC(dpy, root, 0, NULL);
+    
+    XCBSetLineAttributes(dpy, drw->gc, )
 	XSetLineAttributes(dpy, drw->gc, 1, LineSolid, CapButt, JoinMiter);
 
 	return drw;
@@ -433,8 +436,7 @@ drw_cur_create(Drw *drw, int shape)
 
 	if (!drw || !(cur = ecalloc(1, sizeof(Cur))))
 		return NULL;
-
-	cur->cursor = XCreateFontCursor(drw->dpy, shape);
+    cur->cursor = XCBCreateFontCursor(drw->dpy, shape);
 
 	return cur;
 }

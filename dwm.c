@@ -33,10 +33,11 @@
 #ifdef XINERAMA
 #endif /* XINERAMA */
 
+
 #include <xcb/xinerama.h>
 
 #include "xcb_trl.h"
-//#include "drw.h"
+#include "drw.h"
 #include "util.h"
 
 
@@ -279,6 +280,11 @@ static int running = 1;
 static Cur *cursor[CurLast];
 static Clr **scheme;
 static XCBDisplay *dpy;
+
+static Display *Xdpy;
+static int Xscreen;
+static Window Xroot;
+
 static Drw *drw;
 static Monitor *mons, *selmon;
 static XCBWindow root, wmcheckwin;
@@ -1596,7 +1602,7 @@ setup(void)
 	sw = scr->width_in_pixels;
 	sh = scr->height_in_pixels;
     root = src->root;
-	drw = drw_create(dpy, screen, root, sw, sh);
+	drw = drw_create(Xdpy, Xscreen, Xroot, sw, sh);
 	if (!drw_fontset_create(drw, fonts, LENGTH(fonts)))
     {   die("FATAL: SETUP_NO_FONTS_FOUND");
     }
@@ -1874,18 +1880,21 @@ void
 updatebars(void)
 {
 	Monitor *m;
-	XSetWindowAttributes wa = {
-		.override_redirect = True,
-		.background_pixmap = ParentRelative,
-		.event_mask = ButtonPressMask|ExposureMask
-	};
+    XCBWindowAttributes wa =
+    {
+        .override_redirect = 1,
+        .background_pixmap = XCB_BACK_PIXMAP_PARENT_RELATIVE,
+        .event_mask = XCB_EVENT_MASK_BUTTON_PRESS|XCB_EVENT_MASK_EXPOSURE, /* typedef xcb_event_mask_t */
+    }
 	XClassHint ch = {"dwm", "dwm"};
-	for (m = mons; m; m = m->next) {
+	for (m = mons; m; m = m->next) 
+    {
 		if (m->barwin)
 			continue;
-		m->barwin = XCreateWindow(dpy, root, m->wx, m->by, m->ww, bh, 0, DefaultDepth(dpy, screen),
-				CopyFromParent, DefaultVisual(dpy, screen),
-				CWOverrideRedirect|CWBackPixmap|CWEventMask, &wa);
+        m->barwin = XCBCreateWindow(dpy, root, m->wx, m->by, m->ww, bh, 0, XCBDefaultDepth(dpy, screen), 
+                XCB_COPY_FROM_PARENT, XCBDefaultVisual(dpy, screen), XCB_CW_OVERRIDE_REDIRECT|XCB_CW_BACK_PIXEL|XCB_CW_EVENT_MASK, &wa
+                /* xcb_window_class_t */                            /* xcb_cw_t */
+                );
 		XDefineCursor(dpy, m->barwin, cursor[CurNormal]->cursor);
 		XMapRaised(dpy, m->barwin);
 		XSetClassHint(dpy, m->barwin, &ch);
@@ -2245,6 +2254,11 @@ main(int argc, char *argv[])
 		fputs("warning: no locale support\n", stderr);
     if(!(dpy = XCBOpenXCBDisplay(NULL, &screen)))
 		die("dwm: cannot open display");
+    if(!(Xdpy = XOpenDisplay(NULL)))
+        die("dwm: cannot open display");
+    Xscreen = DefaultScreen(dpy);
+    Xroot = RootWindow(dpy, Xscreen);
+    XSetEventQueueOwner(dpy, XCBOwnsEventQueue);
 	checkotherwm();
 	setup();
 #ifdef __OpenBSD__

@@ -32,8 +32,8 @@ typedef xcb_get_geometry_cookie_t XCBGeometryCookie;
 typedef xcb_get_geometry_cookie_t XCBWindowGeometryCookie;
 typedef xcb_query_extension_cookie_t XCBExtensionCookie;
 typedef xcb_query_extension_reply_t XCBExtensionReply;
-typedef xcb_get_window_attributes_reply_t XCBWindowAttributes;
-typedef xcb_get_window_attributes_reply_t XCBAttributes;
+typedef xcb_change_window_attributes_value_list_t XCBWindowAttributes;
+typedef xcb_get_window_attributes_reply_t XCBWindowAttributesReply;
 typedef xcb_get_geometry_reply_t XCBGeometry;
 typedef xcb_get_geometry_reply_t XCBWindowGeometry;
 typedef xcb_pixmap_t XCBPixmap;
@@ -161,7 +161,7 @@ extern XCBAtomCookie XCBInternAtomCookie(XCBDisplay *display, const char *name, 
 extern XCBAtom XCBInternAtomReply(XCBDisplay *display, XCBAtomCookie cookie);
 
 extern XCBWindowAttributesCookie XGetWindowAttributesCookie(XCBDisplay *display, XCBWindow window);
-extern XCBWindowAttributes *XCBGetWindowAttributesReply(XCBDisplay *display, XCBWindowAttributesCookie cookie);
+extern XCBWindowAttributesReply *XCBGetWindowAttributesReply(XCBDisplay *display, XCBWindowAttributesCookie cookie);
 extern XCBGeometryCookie XCBGetWindowGeometryCookie(XCBDisplay *display, XCBWindow window);
 extern XCBGeometry *XCBGetWindowGeometryReply(XCBDisplay *display, XCBGeometryCookie cookie);
 extern XCBPixmap XCBCreatePixmap(XCBDisplay *display, XCBWindow root, unsigned int width, unsigned int height, unsigned short depth);
@@ -323,6 +323,10 @@ extern XCBGC XCBCreateGC(XCBDisplay *display, XCBDrawable drawable, uint32_t val
  * RETURN: 1, always cause why not 
  */
 extern int XCBSetLineAttributes(XCBDisplay *display, XCBGC gc, uint32_t linewidth, uint32_t linestyle, uint32_t capstyle, uint32_t joinstyle);
+
+
+
+extern int XCBSetClassHint(XCBDisplay *display, XCBWindow, XCBClassHint *classhint);
 
 /* Valuemasks
 XCB_GC_FUNCTION

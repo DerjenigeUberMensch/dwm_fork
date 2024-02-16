@@ -319,7 +319,7 @@ XCBGetWindowAttributesCookie(XCBDisplay *display, XCBWindow window)
     return xcb_get_window_attributes(display, window);
 }
 
-inline XCBWindowAttributes *
+inline XCBWindowAttributesReply *
 XCBGetWindowAttributesReply(XCBDisplay *display, XCBWindowAttributesCookie cookie)
 {
     XCBGenericError **e = NULL;

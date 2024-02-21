@@ -19,6 +19,8 @@
  * Keys and tagging rules are organized as arrays and defined in config.h.
  *
  * To understand everything else, start reading main().
+ *
+ * Quick notes XA_WHATEVER simply is a short form of X_ATOM_WHATEVER so to port one would do XCB_ATOM_WHATEVER
  */
 #include <errno.h>
 #include <locale.h>
@@ -256,6 +258,7 @@ static int bh;               /* bar height */
 static int lrpad;            /* sum of left and right padding for text */
 static int (*xerrorxlib)(XCBDisplay *, XCBGenericError *);
 static unsigned int numlockmask = 0;
+static xcb_key_symbols_t *syms = NULL;
 /* Due to the fact that I dont know XCB's last event I will just put '50'
  * Though XCB probably only has at most ~40 events, cant take any risks though
  */
@@ -281,6 +284,7 @@ static Cur *cursor[CurLast];
 static Clr **scheme;
 static XCBDisplay *dpy;
 
+
 static Display *Xdpy;
 static int Xscreen;
 static Window Xroot;
@@ -288,6 +292,9 @@ static Window Xroot;
 static Drw *drw;
 static Monitor *mons, *selmon;
 static XCBWindow root, wmcheckwin;
+/* makeshift xcb drw */
+static XCBGC gc;
+static XCBDrawable drawable;
 
 /* configuration, allows nested code to access above variables */
 #include "config.h"
@@ -722,6 +729,7 @@ dirtomon(int dir)
 void
 drawbar(Monitor *m)
 {
+    return;
 	int x, w, tw = 0;
 	int boxs = drw->fonts->h / 9;
 	int boxw = drw->fonts->h / 6 + 2;
@@ -731,40 +739,59 @@ drawbar(Monitor *m)
 	if (!m->showbar)
 		return;
 
-	/* draw status first so it can be overdrawn by tags later */
-	if (m == selmon) { /* status is only drawn on selected monitor */
-		drw_setscheme(drw, scheme[SchemeNorm]);
+    /* status is only drawn on selected monitor */
+	if (m == selmon) 
+    {   
+		//drw_setscheme(drw, scheme[SchemeNorm]);
 		tw = TEXTW(stext) - lrpad + 2; /* 2px right padding */
-		drw_text(drw, m->ww - tw, 0, tw, bh, 0, stext, 0);
+        /* draw status first so it can be overdrawn by tags later */
+        xcb_image_text_16(dpy, strlen(stext), m->barwin, gc, m->ww - tw, 0, stext);
+		//drw_text(drw, m->ww - tw, 0, tw, bh, 0, stext, 0);
 	}
 
-	for (c = m->clients; c; c = c->next) {
+	for (c = m->clients; c; c = c->next) 
+    {
 		occ |= c->tags;
 		if (c->isurgent)
-			urg |= c->tags;
+        {   urg |= c->tags;
+        }
 	}
 	x = 0;
-	for (i = 0; i < LENGTH(tags); i++) {
+	for (i = 0; i < LENGTH(tags); i++) 
+    {
 		w = TEXTW(tags[i]);
+        /*
 		drw_setscheme(drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm]);
 		drw_text(drw, x, 0, w, bh, lrpad / 2, tags[i], urg & 1 << i);
+        */
+        xcb_image_text_16(dpy, strlen(tags[i]), m->barwin, gc, x, 0, tags[i]);
 		if (occ & 1 << i)
+        {
+            /*
 			drw_rect(drw, x + boxs, boxs, boxw, boxw,
 				m == selmon && selmon->sel && selmon->sel->tags & 1 << i,
 				urg & 1 << i);
+            */
+            /* TODO */
+        }
 		x += w;
 	}
 	w = TEXTW(m->ltsymbol);
+    /*
 	drw_setscheme(drw, scheme[SchemeNorm]);
+    */
 	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
-
-	if ((w = m->ww - tw - x) > bh) {
-		if (m->sel) {
+	if ((w = m->ww - tw - x) > bh) 
+    {
+		if (m->sel) 
+        {
 			drw_setscheme(drw, scheme[m == selmon ? SchemeSel : SchemeNorm]);
 			drw_text(drw, x, 0, w, bh, lrpad / 2, m->sel->name, 0);
 			if (m->sel->isfloating)
 				drw_rect(drw, x + boxs, boxs, boxw, boxw, m->sel->isfixed, 0);
-		} else {
+		} 
+        else 
+        {
 			drw_setscheme(drw, scheme[SchemeNorm]);
 			drw_rect(drw, x, 0, w, bh, 1, 1);
 		}
@@ -1624,6 +1651,8 @@ setup(void)
 	sh = scr->height_in_pixels;
     root = src->root;
 	drw = drw_create(Xdpy, Xscreen, Xroot, sw, sh);
+    gc = XCBCreateGC(dpy, root, 0, NULL);
+    drawable = XCBCreatePixmap(dpy, root, sw, sh, XCBDefaultDepth(dpy, screen));
 	if (!drw_fontset_create(drw, fonts, LENGTH(fonts)))
     {   die("FATAL: SETUP_NO_FONTS_FOUND");
     }
@@ -1673,24 +1702,27 @@ setup(void)
 	updatebars();
 	updatestatus();
 	/* supporting window for NetWMCheck */
-	wmcheckwin = XCreateSimpleWindow(dpy, root, 0, 0, 1, 1, 0, 0, 0);
-	XChangeProperty(dpy, wmcheckwin, netatom[NetWMCheck], XA_WINDOW, 32,
-		PropModeReplace, (unsigned char *) &wmcheckwin, 1);
-	XChangeProperty(dpy, wmcheckwin, netatom[NetWMName], utf8string, 8,
-		PropModeReplace, (unsigned char *) "dwm", 3);
-	XChangeProperty(dpy, root, netatom[NetWMCheck], XA_WINDOW, 32,
-		PropModeReplace, (unsigned char *) &wmcheckwin, 1);
+    wmcheckwin = XCBCreateWindow(dpy, root, 0, 0, 1, 1, 0, 0, 0);
+
+    XCBChangeProperty(dpy, wmcheckwin, netatom[NetWMCheck], XCB_ATOM_WINDOW, 32, XCB_PROP_MODE_REPLACE, (unsigned char *)&wmcheckwin, 1);
+    XCBChangeProperty(dpy, wmcheckwin, netatom[NetWMName], utf8string, 8, XCB_PROP_MODE_REPLACE, (unsigned char *)"dwm", strlen("dwm"));
+    XCBChangeProperty(dpy, root, netatom[NetWMCheck], XCB_ATOM_WINDOW, 32, XCB_PROP_MODE_REPLACE, (unsigned char *)&wmcheckwin, 1);
 	/* EWMH support per view */
-	XChangeProperty(dpy, root, netatom[NetSupported], XA_ATOM, 32,
-		PropModeReplace, (unsigned char *) netatom, NetLast);
-	XDeleteProperty(dpy, root, netatom[NetClientList]);
+    XCBChangeProperty(dpy, root, netatom[NetSupported], XCB_ATOM_ATOM, 32, XCB_PROP_MODE_REPLACE, (unsigned char *)netatom, NetLast);
+    XCBDeleteProperty(dpy, root, netatom[NetClientList]);
 	/* select events */
-	wa.cursor = cursor[CurNormal]->cursor;
-	wa.event_mask = SubstructureRedirectMask|SubstructureNotifyMask
-		|ButtonPressMask|PointerMotionMask|EnterWindowMask
-		|LeaveWindowMask|StructureNotifyMask|PropertyChangeMask;
-	XChangeWindowAttributes(dpy, root, CWEventMask|CWCursor, &wa);
-	XSelectInput(dpy, root, wa.event_mask);
+    XWindowAttributes xwa;
+	xwa.cursor = cursor[CurNormal]->cursor;
+	wa.event_mask = XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT|XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY|
+                    XCB_EVENT_MASK_BUTTON_PRESS|XCB_EVENT_MASK_POINTER_MOTION|XCB_EVENT_MASK_ENTER_WINDOW|
+                    XCB_EVENT_MASK_LEAVE_WINDOW|XCB_EVENT_MASK_STRUCTURE_NOTIFY|XCB_EVENT_MASK_PROPERTY_CHANGE;
+    XCBChangeWindowAttributes(dpy, root, XCB_CW_EVENT_MASK, &wa);
+
+    /* cursors still use Xlib */
+	XChangeWindowAttributes(Xdpy, Xroot, CWCursor, &xwa);
+    XCBSelectInput(dpy, root, wa.event_mask);
+    /* init syms before we grab keys */
+    syms = xcb_key_symbols_alloc(dpy);
 	grabkeys();
 	focus(NULL);
 }
@@ -2068,14 +2100,35 @@ void
 updatenumlockmask(void)
 {
 	unsigned int i, j;
-	XModifierKeymap *modmap;
+    XCBCookie cookie;
+    XCBGenericError *err = NULL;
+    xcb_get_modifier_mapping_reply_t *modmap;
+    xcb_keycode_t *codes;
+    xcb_key_code_t *nmlock;
+    xcb_key_code_t nmlockid;
 
 	numlockmask = 0;
-	modmap = XGetModifierMapping(dpy);
+    cookie = xcb_get_modifier_mapping(dpy);
+    modmap = xcb_get_modifier_mapping_reply(dpy, cookie, &err);
+    if(err)
+    {   free(modmap);
+        debug("WARNING: UPDATENUMLOCKMASK_REPLY_FAILURE"):
+        return; /* not important enough to call die() */
+    }
+	codes = xcb_get_modifier_mapping_keycodes(reply);
+    nmlock = xcb_key_symbols_get_keycode(syms, XK_Num_Lock);
+    if(!nmlock)
+    {   free(modmap);
+        debug("WARNING: UPDATENUMLOCKMASK_GET_KEYCODE_FAILURE");
+        return; /* not important enough to call die() */
+    }
+
+    /* fix later */
+    modmap->keycodes_per_modifier;
 	for (i = 0; i < 8; i++)
-		for (j = 0; j < modmap->max_keypermod; j++)
-			if (modmap->modifiermap[i * modmap->max_keypermod + j]
-				== XKeysymToKeycode(dpy, XK_Num_Lock))
+		for (j = 0; j < modmap->keycodes_per_modifier; j++)
+			if (codes[i * modmap->max_keypermod + j]
+				== *nmlock
 				numlockmask = (1 << i);
 	XFreeModifiermap(modmap);
 }
@@ -2288,6 +2341,7 @@ main(int argc, char *argv[])
 	scan();
 	run();
 	cleanup();
-	XCloseXCBDisplay(dpy);
+	XCBCloseDisplay(dpy);
+    XCloseDisplay(Xdpy);
 	return EXIT_SUCCESS;
 }

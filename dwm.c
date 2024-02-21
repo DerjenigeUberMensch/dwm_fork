@@ -483,8 +483,8 @@ checkotherwm(void)
 {
 	u32 values[] = { XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT };
     XCBGenericError *err;
-	XCBCookie wm_cookie = xcb_change_window_attributes_checked(conn, root, XCB_CW_EVENT_MASK, values);
-	err = xcb_request_check(conn, wm_cookie);
+	XCBCookie wm_cookie = xcb_change_window_attributes_checked(dpy, root, XCB_CW_EVENT_MASK, values);
+	err = xcb_request_check(dpy, wm_cookie);
     if(err)
     {   debug("error code: %d", err->error_code);
         free(err);
@@ -940,21 +940,42 @@ gettextprop(XCBWindow w, XCBAtom atom, char *text, unsigned int size)
 {
 	char **list = NULL;
 	int n;
-	XTextProperty name;
+    XCBTextPropertyCookie cookie;
+	XCBTextProperty *name;
+
 
 	if (!text || size == 0)
 		return 0;
+
 	text[0] = '\0';
-	if (!XGetTextProperty(dpy, w, &name, atom) || !name.nitems)
-		return 0;
-	if (name.encoding == XA_STRING) {
-		strncpy(text, (char *)name.value, size - 1);
-	} else if (XmbTextPropertyToTextList(dpy, &name, &list, &n) >= Success && n > 0 && *list) {
-		strncpy(text, *list, size - 1);
-		XFreeStringList(list);
+
+    cookie = XCBGetTextPropertyCookie(dpy, w, atom);
+    if(!XCBGetTextPropertyReply(dpy, cookie, name) || !name->name_len)
+    {   return 0;
+    }
+                        /* XA_STRING I think */
+	if (name->encoding == XCB_ATOM_STRING) 
+    {   strncpy(text, (char *)name->name, size - 1);
 	}
+    else
+    {
+        /* this probably doesnt work */
+        XTextProperty prop;
+        prop.encoding = name->encoding;
+        prop.format = name->format;
+        prop.value = (unsigned char *)name->name;
+        prop.nitems = name->name_len;
+        /* this is questionably hard to replace src/xlibi18n/lcWrap.c 
+         * XSupportsLocale() is also in here so might was well get that too
+         */
+        if (XmbTextPropertyToTextList(Xdpy, &prop, &list, &n) >= Success && n > 0 && *list) 
+        {
+		    strncpy(text, *list, size - 1);
+		    XFreeStringList(list);
+	    }
+    } 
 	text[size - 1] = '\0';
-	XFree(name.value);
+    XCBFreeTextProperty(name);
 	return 1;
 }
 
@@ -1886,18 +1907,17 @@ updatebars(void)
         .background_pixmap = XCB_BACK_PIXMAP_PARENT_RELATIVE,
         .event_mask = XCB_EVENT_MASK_BUTTON_PRESS|XCB_EVENT_MASK_EXPOSURE, /* typedef xcb_event_mask_t */
     }
-	XClassHint ch = {"dwm", "dwm"};
+    const char *ch = "dwm";
+
 	for (m = mons; m; m = m->next) 
     {
 		if (m->barwin)
 			continue;
         m->barwin = XCBCreateWindow(dpy, root, m->wx, m->by, m->ww, bh, 0, XCBDefaultDepth(dpy, screen), 
-                XCB_COPY_FROM_PARENT, XCBDefaultVisual(dpy, screen), XCB_CW_OVERRIDE_REDIRECT|XCB_CW_BACK_PIXEL|XCB_CW_EVENT_MASK, &wa
-                /* xcb_window_class_t */                            /* xcb_cw_t */
-                );
-		XDefineCursor(dpy, m->barwin, cursor[CurNormal]->cursor);
-		XMapRaised(dpy, m->barwin);
-		XSetClassHint(dpy, m->barwin, &ch);
+                XCB_COPY_FROM_PARENT, XCBDefaultVisual(dpy, screen), XCB_CW_OVERRIDE_REDIRECT|XCB_CW_BACK_PIXEL|XCB_CW_EVENT_MASK, &wa);
+		XCBDefineCursor(dpy, m->barwin, cursor[CurNormal]->cursor);
+		XCBMapRaised(dpy, m->barwin);
+        XCBSetClassHint(dpy, m->barwin, ch);
 	}
 }
 
@@ -2107,7 +2127,7 @@ updatesizehints(Client *c)
 void
 updatestatus(void)
 {
-	if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
+	if (!gettextprop(root, XCB_ATOM_WM_NAME, stext, sizeof(stext)))
 		strcpy(stext, "dwm-"VERSION);
 	drawbar(selmon);
 }
@@ -2116,7 +2136,7 @@ void
 updatetitle(Client *c)
 {
 	if (!gettextprop(c->win, netatom[NetWMName], c->name, sizeof c->name))
-		gettextprop(c->win, XA_WM_NAME, c->name, sizeof c->name);
+		gettextprop(c->win, XCB_ATOM_WM_NAME, c->name, sizeof c->name);
 	if (c->name[0] == '\0') /* hack to mark broken clients */
 		strcpy(c->name, broken);
 }

@@ -933,8 +933,8 @@ getrootptr(int *x, int *y)
 {
     int samescr;
 
-    XCBPointerCookie cookie = XCBQueryPointerCookie(dpy);
-    XCBPointerReply *reply = XCBQueryPointerReply(dpy);
+    XCBPointerCookie cookie = XCBQueryPointerCookie(dpy, root);
+    XCBPointerReply *reply = XCBQueryPointerReply(dpy, cookie);
 
     *x = reply->root_x;
     *y = reply->root_y;
@@ -1013,17 +1013,26 @@ grabbuttons(Client *c, int focused)
 	{
 		unsigned int i, j;
 		unsigned int modifiers[] = { 0, LockMask, numlockmask, numlockmask|LockMask };
-		XUngrabButton(dpy, AnyButton, AnyModifier, c->win);
+        XCBUngrabButton(dpy, XCB_BUTTON_INDEX_ANY, XCB_BUTTON_MASK_ANY, c->win);
 		if (!focused)
-			XGrabButton(dpy, AnyButton, AnyModifier, c->win, False,
-				BUTTONMASK, GrabModeSync, GrabModeSync, None, None);
+        {
+            XCBGrabButton(dpy, XCB_BUTTON_INDEX_ANY, XCB_MOD_MASK_ANY, c->win, 0, BUTTONMASK, 
+                    XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_SYNC, XCB_NONE, XCB_NONE);
+        }
 		for (i = 0; i < LENGTH(buttons); i++)
+        {
 			if (buttons[i].click == ClkClientWin)
+            {
 				for (j = 0; j < LENGTH(modifiers); j++)
-					XGrabButton(dpy, buttons[i].button,
-						buttons[i].mask | modifiers[j],
-						c->win, False, BUTTONMASK,
-						GrabModeAsync, GrabModeSync, None, None);
+                {
+                    XCBGrabButton(dpy, buttons[i].button, 
+                            buttons[i].mask | modifiers[j], 
+                            c->win, 0, BUTTONMASK, 
+                            XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_SYNC, 
+                            XCB_NONE, XCB_NONE);
+                }
+            }
+        }
 	}
 }
 
@@ -1037,8 +1046,8 @@ grabkeys(void)
 		int start, end, skip;
 		KeySym *syms;
 
-		XUngrabKey(dpy, AnyKey, AnyModifier, root);
-		XXCBDisplayKeycodes(dpy, &start, &end);
+        XCBUngrabKey(dpy, XCB_GRAB_ANY, XCB_MOD_MASK_ANY, root);
+        XCBDisplayKeyCodes(dpy, &start, &end);
 		syms = XGetKeyboardMapping(dpy, start, end - start + 1, &skip);
 		if (!syms)
 			return;
@@ -1703,7 +1712,6 @@ setup(void)
 	updatestatus();
 	/* supporting window for NetWMCheck */
     wmcheckwin = XCBCreateWindow(dpy, root, 0, 0, 1, 1, 0, 0, 0);
-
     XCBChangeProperty(dpy, wmcheckwin, netatom[NetWMCheck], XCB_ATOM_WINDOW, 32, XCB_PROP_MODE_REPLACE, (unsigned char *)&wmcheckwin, 1);
     XCBChangeProperty(dpy, wmcheckwin, netatom[NetWMName], utf8string, 8, XCB_PROP_MODE_REPLACE, (unsigned char *)"dwm", strlen("dwm"));
     XCBChangeProperty(dpy, root, netatom[NetWMCheck], XCB_ATOM_WINDOW, 32, XCB_PROP_MODE_REPLACE, (unsigned char *)&wmcheckwin, 1);
@@ -2126,11 +2134,17 @@ updatenumlockmask(void)
     /* fix later */
     modmap->keycodes_per_modifier;
 	for (i = 0; i < 8; i++)
+    {
 		for (j = 0; j < modmap->keycodes_per_modifier; j++)
-			if (codes[i * modmap->max_keypermod + j]
-				== *nmlock
-				numlockmask = (1 << i);
-	XFreeModifiermap(modmap);
+        {
+			if (codes[i * modmap->max_keypermod + j] == *nmlock)
+            {   numlockmask = (1 << i);
+            }
+        }
+    }
+
+	free(modmap);
+    free(nmlock);
 }
 
 void

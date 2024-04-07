@@ -1,8 +1,8 @@
 # UNUSED
 >
 
-Originally this was meant to be a port to xcb of modern dwm however that proved to be quite the challenge so I gave up.
+Originally this was meant to be a port to xcb of modern dwm however that proved to be quite the challenge.
 
-However someone with experience in xcb could likely do this with some effort, Though I dont know xcb enough to even "start this"
+instead I just changed the direction of the project and got the current version [xcb-wswm](https://github.com/DerjenigeUberMensch/xcb-wswm) which is a partial port.
 
-There is a port of dwm however it is outdated and can be found [here](https://github.com/julian-goldsmith/dwm-xcb)
+However I strayed away from the "suckless" philosophy due to that lack of expandibility for that software without getting a huge mess of code.
